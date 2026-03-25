@@ -4,7 +4,7 @@ import { NextResponse, NextRequest } from 'next/server';
  * Next.js Middleware for global project-wide IP Whitelisting.
  * Refined for Next.js 15/16 - uses standard headers to resolve client IP.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Pull the raw CSV string of allowed IPs from environment variables
   const whitelist = process.env.WHITELISTED_IPS;
   
