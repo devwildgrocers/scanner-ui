@@ -8,7 +8,7 @@ export const APP_CONFIG = {
   AUTH_ENABLED: process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true',
 
   /**
-   * API base URL. Fallback to an empty string to allow error boundaries to catch it.
+   * API base URL. Using the permanent production endpoint provided by Cloud Run.
    */
-  API_URL: process.env.NEXT_PUBLIC_API_URL || '',
+  API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://scanner-backend-1021271918187.europe-west1.run.app/api',
 } as const;
