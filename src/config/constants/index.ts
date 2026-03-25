@@ -8,7 +8,7 @@ export const APP_CONFIG = {
   AUTH_ENABLED: process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true',
 
   /**
-   * API base URL
+   * API base URL. Fallback to an empty string to allow error boundaries to catch it.
    */
-  API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+  API_URL: process.env.NEXT_PUBLIC_API_URL || '',
 } as const;
