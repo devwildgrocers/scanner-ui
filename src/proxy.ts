@@ -24,6 +24,12 @@ export function proxy(request: NextRequest) {
     // Standardize localhost
     const ip = resolvedIp === '::1' ? '127.0.0.1' : resolvedIp;
     
+    // Allow all if the whitelist contains '*' (Global Bypass)
+    if (whitelist.includes('*')) {
+       console.log(`⚠️ [IP GLOBAL ALLOW] Bypassing whitelist check due to wildcard '*'`);
+       return NextResponse.next();
+    }
+
     // Parse whitelist from JSON string or CSV - Ensuring empty entries are discarded
     const allowedIps = whitelist.replace(/[\[\]"]/g, '').split(',').map(s => s.trim()).filter(s => s.length > 0);
     

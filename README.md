@@ -1,73 +1,35 @@
-# React + TypeScript + Vite
+# 📦 Warehouse Scanner Frontend (Next.js)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A lightning-fast, mobile-first picking interface optimized for **Barcode & QR Code** scanning in industrial warehouse environments.
 
-Currently, two official plugins are available:
+## 🚀 Features
+- **Focus Trap Architecture**: Invisible input field with auto-refocus, ensuring the scanner is always ready to scan without tapping.
+- **2-Scan Workflow**: Enforces "Shelf Location -> Order Box" scanning for zero-error fulfilment.
+- **Mobile Steppers (+/-)**: Large, high-contrast buttons for manual quantity adjustment on tablets.
+- **Substitution Support**: Real-time product search and substitution for out-of-stock items.
+- **Edge Security (Proxy)**: Next.js 16 `proxy.ts` (middleware) to block non-warehouse IPs instantly.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠️ Tech Stack
+- **Framework**: Next.js 16 (Canary)
+- **UI Architecture**: Tailwind CSS + Framer Motion (Animations)
+- **Icons**: Lucide React
+- **Notifications**: Sonner
 
-## React Compiler
+## 🔐 Configuration (Cloud Run)
+Environment variables are **"baked-in"** during the Google Cloud Build process. Ensure these are set in the Cloud Run Console variables section before deployment:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Variable | Description |
+| :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | The production URL of your backend + `/api`. |
+| `NEXT_PUBLIC_AUTH_ENABLED` | Set to `true` to enable session security. |
+| `WHITELISTED_IPS` | Same as the backend list to match proxy security. |
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 📦 Deployment
+Deploy with Google Cloud CLI (requires `node:20.10-alpine` base image):
+```bash
+gcloud builds submit --tag gcr.io/[PROJECT_ID]/scanner-frontend .
+gcloud run deploy scanner-frontend --image gcr.io/[PROJECT_ID]/scanner-frontend --platform managed --port 3000
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📜 License
+Private / Proprietary.
