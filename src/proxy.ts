@@ -31,12 +31,17 @@ export function proxy(request: NextRequest) {
     const isAllowed = allowedIps.some(allowed => ip.includes(allowed) || ip === allowed);
     
     if (!isAllowed) {
-       console.warn(`🛑 Unauthorized frontend access blocked from IP: ${ip} at path: ${request.nextUrl.pathname}`);
+       console.warn(`🛑 [IP DENIED] Incoming: ${ip} | Path: ${request.nextUrl.pathname} | Allowed: ${whitelist}`);
        return new NextResponse(
          `Access Denied: The Warehouse Scanner is restricted to authorized WiFi networks only. (Your IP: ${ip})`, 
          { status: 403 }
        );
     }
+    
+    console.log(`✅ [IP ALLOWED] Incoming: ${ip} | Path: ${request.nextUrl.pathname}`);
+  } else if (!whitelist) {
+    // Audit log for when security is bypassed due to missing env var
+    console.log(`⚠️ [IP BYPASS] Whitelist not set. Allowing access from: ${resolvedIp}`);
   }
 
   return NextResponse.next();
