@@ -24,10 +24,10 @@ export function middleware(request: NextRequest) {
     // Standardize localhost
     const ip = resolvedIp === '::1' ? '127.0.0.1' : resolvedIp;
     
-    // Parse whitelist from JSON string or CSV
-    const allowedIps = whitelist.replace(/[\[\]"]/g, '').split(',').map(s => s.trim());
+    // Parse whitelist from JSON string or CSV - Ensuring empty entries are discarded
+    const allowedIps = whitelist.replace(/[\[\]"]/g, '').split(',').map(s => s.trim()).filter(s => s.length > 0);
     
-    // Check if the current IP is explicitly listed
+    // Check if the current IP is explicitly listed or contains a valid entry
     const isAllowed = allowedIps.some(allowed => ip.includes(allowed) || ip === allowed);
     
     if (!isAllowed) {
