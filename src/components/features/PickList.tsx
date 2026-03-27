@@ -24,6 +24,7 @@ interface PickListProps {
   additionalItems?: PickItem[];
   onCancelSession?: () => void;
   onSessionComplete?: (metrics: any) => void;
+  onResetSession?: () => void;
 }
 
 /**
@@ -37,7 +38,8 @@ const PickList: React.FC<PickListProps> = ({
   localPickedOverlay = {},
   additionalItems = [],
   onCancelSession,
-  onSessionComplete
+  onSessionComplete,
+  onResetSession
 }) => {
   const [items, setItems] = useState<PickItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,7 +150,7 @@ const PickList: React.FC<PickListProps> = ({
             <button 
               className="btn-primary" 
               style={{ width: '100%', maxWidth: 300 }}
-              onClick={() => onSessionComplete?.({ cartId, teamMemberId: pickerId, totalItemsPacked: 0, totalReplacements: 0, totalShorts: 0 })}
+              onClick={onResetSession}
             >
               START NEW CART
             </button>

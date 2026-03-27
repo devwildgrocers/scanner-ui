@@ -155,8 +155,12 @@ export default function App() {
   /**
    * Resets the completion state to allow a fresh cart selection.
    */
-  const handleStartNewSession = () => {
-      setCompletedMetrics(null);
+  const handleResetSession = () => {
+    setActiveSession(null);
+    setCompletedMetrics(null);
+    setPickedItemsState({});
+    setAddedReplacements([]);
+    setSelectedItem(null);
   };
 
   /**
@@ -205,7 +209,7 @@ export default function App() {
           <SessionComplete 
             key="complete" 
             metrics={completedMetrics} 
-            onNewSession={handleStartNewSession} 
+            onNewSession={handleResetSession} 
           />
         ) : !activeSession?.active ? (
           <SessionStart 
@@ -228,6 +232,7 @@ export default function App() {
               additionalItems={addedReplacements}
               onCancelSession={handleCancelSession}
               onSessionComplete={handleSessionComplete}
+              onResetSession={handleResetSession}
             />
             
             <AnimatePresence>
