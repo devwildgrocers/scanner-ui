@@ -129,9 +129,33 @@ const PickList: React.FC<PickListProps> = ({
   }
 
   const isCardDone = (i: PickItem) => (i.pickedQty + (i.replacedQty || 0) + (i.shortQty || 0)) >= i.totalQty;
-  const isPrePacked = items.length > 0 && items.filter(isCardDone).length === items.length;
+  const isAirtableDone = items.length > 0 && items.every(isCardDone);
   const completedItems = combinedItems.filter(isCardDone).length;
   const progress = combinedItems.length > 0 ? (completedItems / combinedItems.length) * 100 : 0;
+
+  // 🛡️ NEW: Block the UI if the cart is already 100% packed in the database
+  if (isAirtableDone && !isSyncing) {
+    return (
+      <div className="app-container" style={{ justifyContent: 'center', textAlign: 'center', padding: 40 }}>
+         <div style={{ background: '#00ff8811', border: '1px solid #00ff88', borderRadius: 24, padding: '60px 40px' }}>
+            <div style={{ display: 'inline-flex', padding: 20, background: '#00ff88', borderRadius: '50%', marginBottom: 30 }}>
+               <CheckCircle2 size={60} color="#0f1117" />
+            </div>
+            <h2 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: 15, color: '#00ff88' }}>Cart Already Complete</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: 40, maxWidth: 400, margin: '0 auto 40px' }}>
+              This cart is already marked as fully packed in Airtable.
+            </p>
+            <button 
+              className="btn-primary" 
+              style={{ width: '100%', maxWidth: 300 }}
+              onClick={() => onSessionComplete?.({ cartId, teamMemberId: pickerId, totalItemsPacked: 0, totalReplacements: 0, totalShorts: 0 })}
+            >
+              START NEW CART
+            </button>
+         </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -252,21 +276,13 @@ const PickList: React.FC<PickListProps> = ({
 
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '20px 20px calc(20px + var(--safe-area))', background: 'linear-gradient(transparent, var(--bg-color) 30%)', pointerEvents: 'none' }}>
         <div style={{ maxWidth: 600, margin: '0 auto', pointerEvents: 'auto', display: 'flex', gap: 10 }}>
-          {isPrePacked ? (
-            <button className="btn-primary" style={{ background: 'var(--surface-color)', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', fontSize: '0.9rem', padding: '14px', width: '100%' }} onClick={onCancelSession}>
-              ✅ CART ALREADY PACKED - GO BACK
+          <button className="btn-primary" style={{ background: 'var(--surface-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', fontSize: '0.9rem', padding: '14px', flex: 1 }} onClick={() => window.location.reload()}>
+            REFRESH
+          </button>
+          {progress >= 100 && (
+            <button className="btn-primary" style={{ background: '#00ff88', color: '#000', fontSize: '0.9rem', fontWeight: 800, padding: '14px', flex: 2, boxShadow: '0 0 20px rgba(0,255,136,0.3)' }} onClick={() => handleFinishCart(combinedItems)}>
+              FINISH PACKING
             </button>
-          ) : (
-            <>
-              <button className="btn-primary" style={{ background: 'var(--surface-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', fontSize: '0.9rem', padding: '14px', flex: 1 }} onClick={() => window.location.reload()}>
-                REFRESH
-              </button>
-              {progress >= 100 && (
-                <button className="btn-primary" style={{ background: '#00ff88', color: '#000', fontSize: '0.9rem', fontWeight: 800, padding: '14px', flex: 2, boxShadow: '0 0 20px rgba(0,255,136,0.3)' }} onClick={() => handleFinishCart(combinedItems)}>
-                  FINISH PACKING
-                </button>
-              )}
-            </>
           )}
         </div>
       </div>

@@ -33,11 +33,15 @@ export function proxy(request: NextRequest) {
     // Parse whitelist from JSON string or CSV - Ensuring empty entries are discarded
     const allowedIps = whitelist.replace(/[\[\]"]/g, '').split(',').map(s => s.trim()).filter(s => s.length > 0);
     
-    // Check if the current IP is explicitly listed or contains a valid entry
-    const isAllowed = allowedIps.some(allowed => ip.includes(allowed) || ip === allowed);
+    /**
+     * 🛡️ SECURE MATCHING (Exact Equality)
+     * We don't use .includes anymore to prevent substring bypasses.
+     */
+    const allowedSet = new Set(allowedIps);
+    const isAllowed = allowedSet.has(ip);
     
     if (!isAllowed) {
-       console.warn(`🛑 [IP DENIED] Incoming: ${ip} | Path: ${request.nextUrl.pathname} | Allowed: ${whitelist}`);
+       console.warn(`🛑 [IP DENIED] Incoming: ${ip} | Path: ${request.nextUrl.pathname}`);
        return new NextResponse(
          `Access Denied: The Warehouse Scanner is restricted to authorized WiFi networks only. (Your IP: ${ip})`, 
          { status: 403 }
