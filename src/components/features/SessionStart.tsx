@@ -96,8 +96,9 @@ const SessionStart: React.FC<SessionStartProps> = ({ onSessionStart }) => {
         transition={{ delay: 0.2 }}
       >
         <div className="dropdown-wrapper">
-          <label><User size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Team Member</label>
+          <label htmlFor="team-member-select"><User size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Team Member</label>
           <select
+            id="team-member-select"
             value={selectedTeamMember}
             onChange={(e) => setSelectedTeamMember(e.target.value)}
           >
@@ -109,8 +110,9 @@ const SessionStart: React.FC<SessionStartProps> = ({ onSessionStart }) => {
         </div>
 
         <div className="dropdown-wrapper">
-          <label><Clipboard size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Active Cart</label>
+          <label htmlFor="cart-select"><Clipboard size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Active Cart</label>
           <select
+            id="cart-select"
             value={selectedCart}
             onChange={(e) => setSelectedCart(e.target.value)}
           >

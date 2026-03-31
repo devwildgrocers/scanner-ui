@@ -31,5 +31,35 @@ gcloud builds submit --tag gcr.io/[PROJECT_ID]/scanner-frontend .
 gcloud run deploy scanner-frontend --image gcr.io/[PROJECT_ID]/scanner-frontend --platform managed --port 3000
 ```
 
+## 🧪 Testing Environment
+The project uses **Jest** & **React Testing Library** with a "Smart Dynamic Runner".
+
+### Primary Commands
+| Command | Action |
+| :--- | :--- |
+| `npm test` | Run all tests in the system |
+| `npm test p1` | Run Phase 1 only (Session Start) |
+| `npm test p1,p2` | Run Multiple Phases (e.g., p1 and p2) |
+| `npm run test:watch` | Start Jest in Watch Mode |
+
+> [!NOTE]
+> The runner is **Phase-Aware**. If you request a phase that doesn't exist (e.g., `p4`), it will stop and show you the available phases automatically!
+
+## ⚙️ Environment Setup
+Create a `.env.local` file in the root directory and configure these variables:
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:3001/api` | The base URL of your NestJS backend. Ensure it ends with `/api`. |
+| `NEXT_PUBLIC_AUTH_ENABLED` | `true` | Toggle for local session security. Set to `false` for development bypass. |
+| `WHITELISTED_IPS` | `127.0.0.1, ::1, *` | IPs allowed to scan. Use `*` to allow all for local debugging. |
+
+### Quick Start Template:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+NEXT_PUBLIC_AUTH_ENABLED=true
+WHITELISTED_IPS=127.0.0.1, ::1, *
+```
+
 ## 📜 License
 Private / Proprietary.

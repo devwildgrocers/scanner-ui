@@ -242,7 +242,15 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
       style={{ position: 'fixed', inset: 0, background: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column' }}
     >
       <form onSubmit={handleScan} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>
-        <input ref={inputRef} type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} autoComplete="off" autoFocus />
+        <input 
+          ref={inputRef} 
+          type="text" 
+          value={inputValue} 
+          onChange={e => setInputValue(e.target.value)} 
+          autoComplete="off" 
+          autoFocus 
+          inputMode="none"
+        />
       </form>
 
       <header style={{ padding: '20px', background: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 15 }}>
