@@ -13,6 +13,7 @@ export interface Product {
   id: string;
   name: string;
   barcode?: string;
+  location?: string;
 }
 
 export interface PickItem {
@@ -32,8 +33,12 @@ export interface PickItem {
     qty: number;
     fulfilled: number;
     replacementProductId?: string;
+    replacedQty?: number;
+    shortQty?: number;
     status?: string;
+    slot?: string;
   }>;
   isReplacement?: boolean;
   originalProductId?: string;
+  slot?: string;
 }

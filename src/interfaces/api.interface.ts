@@ -3,6 +3,10 @@ export interface SessionResponse {
   sessionStartedAt: string;
   cartId: string;
   teamMemberId: string;
+  teamMemberName?: string;
+  cartStatus?: string;
+  assignments?: Record<string, string>;
+  summary?: any;
 }
 
 export interface ApiErrorResponse {

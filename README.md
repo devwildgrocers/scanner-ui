@@ -3,6 +3,7 @@
 A lightning-fast, mobile-first picking interface optimized for **Barcode & QR Code** scanning in industrial warehouse environments.
 
 ## 🚀 Features
+- **Historical Dashboard**: Direct scanning of completed carts for instant packing metrics (Boxes, Replacements, Shorts).
 - **Focus Trap Architecture**: Invisible input field with auto-refocus, ensuring the scanner is always ready to scan without tapping.
 - **2-Scan Workflow**: Enforces "Shelf Location -> Order Box" scanning for zero-error fulfilment.
 - **Mobile Steppers (+/-)**: Large, high-contrast buttons for manual quantity adjustment on tablets.

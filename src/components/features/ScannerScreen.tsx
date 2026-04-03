@@ -13,7 +13,7 @@ interface ScannerScreenProps {
   onScanComplete: (item: PickItem, newlyAddedReplacements: PickItem[]) => void;
 }
 
-type ScanPhase = 'location' | 'qty' | 'box-original' | 'replacement-prompt' | 'replacement-select' | 'box-replacement';
+type ScanPhase = 'location' | 'qty' | 'box-original' | 'replacement-prompt' | 'replacement-select' | 'replacement-qty' | 'box-replacement';
 
 interface FulfilledOrderMeta {
   id: string;
@@ -21,6 +21,7 @@ interface FulfilledOrderMeta {
   shortQty?: number;
   status?: 'Short' | 'Replaced';
   replacementProductId?: string;
+  replacedQty?: number;
 }
 
 const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanComplete }) => {
@@ -37,6 +38,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReplacementId, setSelectedReplacementId] = useState('');
+  const [replacementQtyInput, setReplacementQtyInput] = useState<number | ''>('');
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,7 +70,12 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
 
   useEffect(() => {
     if (phase === 'qty' && currentGroup) {
-      setQtyInput(currentGroup.qty);
+      if (item.isReplacement) {
+        setQtyInput(currentGroup.qty);
+        setPhase('box-replacement');
+      } else {
+        setQtyInput(currentGroup.qty);
+      }
     }
   }, [phase, currentGroup]);
 
@@ -91,19 +98,40 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
   const finishCurrentOrder = (newMeta: Partial<FulfilledOrderMeta>) => {
     const finalMeta = { ...currentOrderMeta, ...newMeta };
     let remainingToDistribute = Number(qtyInput);
+    let remainingSubToDistribute = finalMeta.replacedQty ?? 0;
     const newFulfilledItems: FulfilledOrderMeta[] = [];
 
     // Distribute quantity across original line items
-    for (const rawId of currentGroup.ids) {
-      const rawItem = item.items.find(i => i.id === rawId)!;
+    for (let i = 0; i < currentGroup.ids.length; i++) {
+      const rawId = currentGroup.ids[i];
+      const rawItem = item.items.find(j => j.id === rawId)!;
       const assignedToThisRow = Math.min(rawItem.qty, remainingToDistribute);
       remainingToDistribute -= assignedToThisRow;
 
+      const diffAmt = rawItem.qty - assignedToThisRow;
+      let shortQtyRow = 0;
+      let replacedQtyRow = 0;
+
+      if (finalMeta.status === 'Replaced') {
+         replacedQtyRow = Math.min(diffAmt, remainingSubToDistribute);
+         remainingSubToDistribute -= replacedQtyRow;
+         
+         if (i === currentGroup.ids.length - 1 && remainingSubToDistribute > 0) {
+           replacedQtyRow += remainingSubToDistribute;
+           remainingSubToDistribute = 0;
+         }
+         
+         shortQtyRow = Math.max(0, diffAmt - replacedQtyRow);
+      } else if (finalMeta.status === 'Short') {
+         shortQtyRow = diffAmt;
+      }
+
       newFulfilledItems.push({
+        ...finalMeta,
         id: rawId,
         fulfilled: assignedToThisRow,
-        shortQty: finalMeta.status === 'Short' ? (rawItem.qty - assignedToThisRow) : 0,
-        ...finalMeta
+        shortQty: shortQtyRow,
+        replacedQty: replacedQtyRow
       });
     }
 
@@ -126,38 +154,45 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
     let totalReplaced = 0;
     let totalShort = 0;
     const generatedReplacements: PickItem[] = [];
-    const repMap = new Map<string, number>();
+    const repMap = new Map<string, { totalRQty: number, lines: any[] }>();
 
     const updatedLines = item.items.map(orig => {
       const f = finalOrders.find(fo => fo.id === orig.id);
       if (f) {
         totalPicked += f.fulfilled;
         if (f.status === 'Replaced' || f.status === 'Short') {
-          const diffAmt = (orig.qty - f.fulfilled);
-          if (f.status === 'Short') totalShort += diffAmt;
-          else if (f.status === 'Replaced') {
-            totalReplaced += diffAmt;
-            if (f.replacementProductId) {
-              repMap.set(f.replacementProductId, (repMap.get(f.replacementProductId) || 0) + diffAmt);
+          totalShort += f.shortQty || 0;
+          totalReplaced += f.replacedQty || 0;
+          if (f.status === 'Replaced' && f.replacementProductId && f.replacedQty) {
+            if (!repMap.has(f.replacementProductId)) {
+               repMap.set(f.replacementProductId, { totalRQty: 0, lines: [] });
             }
+            const g = repMap.get(f.replacementProductId)!;
+            g.totalRQty += f.replacedQty;
+            g.lines.push({
+               id: `genrepl-${orig.id}-${Date.now()}`,
+               orderNumber: orig.orderNumber,
+               qty: f.replacedQty,
+               fulfilled: 0
+            });
           }
         }
-        return { ...orig, fulfilled: f.fulfilled, shortQty: f.shortQty, status: f.status, replacementProductId: f.replacementProductId };
+        return { ...orig, fulfilled: f.fulfilled, shortQty: f.shortQty, replacedQty: f.replacedQty, status: f.status, replacementProductId: f.replacementProductId };
       }
       return orig;
     });
 
-    repMap.forEach((qty, repId) => {
+    repMap.forEach((data, repId) => {
       const repProd = products.find(p => p.id === repId);
       generatedReplacements.push({
-        productId: `repl-${item.productId}-${Date.now()}-${repId}`,
+        productId: `repl-task-${Date.now()}-${repId}`,
         originalProductId: item.productId,
         isReplacement: true,
-        name: repProd?.name || 'Replacement Product',
-        location: `${item.location} (Sub)`,
-        totalQty: qty,
-        pickedQty: qty,
-        items: []
+        name: `[SUB] ${repProd?.name || 'Replacement Product'}`,
+        location: repProd?.location || 'ZZZZ-Unknown',
+        totalQty: data.totalRQty,
+        pickedQty: 0,
+        items: data.lines
       });
     });
 
@@ -172,6 +207,10 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
     onScanComplete(updatedItem, generatedReplacements);
   };
 
+  /**
+   * Primary input parsing machine for capturing scanner hardware events.
+   * Based on the active `phase`, this validates either location barcodes or Order IDs.
+   */
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     const scannedCode = inputValue.trim();
@@ -182,13 +221,32 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
 
     setTimeout(() => {
       if (phase === 'location') {
-        const isMatch = scannedCode.toLowerCase() === item.location.toLowerCase();
+        const isMatch = scannedCode.toLowerCase() === item.location.toLowerCase() || item.isReplacement;
         if (isMatch) showScanSuccess(() => setPhase('qty'));
         else showScanError(`Location Mismatch: "${scannedCode}"`);
       }
+      else if (phase === 'replacement-select') {
+        const matched = products.find(p => p.barcode === scannedCode || p.id === scannedCode);
+        if (matched) {
+          showScanSuccess(() => {
+            setSelectedReplacementId(matched.id);
+            // Defintive 1:1 or 3:1 ratio logic - finishes immediately WITHOUT second box scan
+            const remainingQty = Math.max(1, currentGroup.qty - Number(qtyInput));
+            finishCurrentOrder({ 
+              status: 'Replaced', 
+              replacementProductId: matched.id, 
+              replacedQty: remainingQty 
+            });
+          });
+        } else {
+          showScanError(`Product Not Found: "${scannedCode}"`);
+        }
+      }
       else if (phase === 'box-original' || phase === 'box-replacement') {
-        const isMatch = scannedCode.toLowerCase() === currentGroup.orderNumber.toLowerCase() ||
-          scannedCode.toLowerCase() === `#${currentGroup.orderNumber.toLowerCase()}`.replace('##', '#');
+        const cleanScanned = scannedCode.replace(/^#+/, '').toLowerCase();
+        const cleanActual = currentGroup.orderNumber.replace(/^#+/, '').toLowerCase();
+
+        const isMatch = (cleanScanned === cleanActual);
 
         if (isMatch) {
           showScanSuccess(() => {
@@ -197,7 +255,12 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
               else finishCurrentOrder({});
             }
             else if (phase === 'box-replacement') {
-              finishCurrentOrder({ status: 'Replaced', replacementProductId: selectedReplacementId });
+              // Now uses the manual replacementQtyInput value for non-1:1 ratios
+              finishCurrentOrder({ 
+                status: 'Replaced', 
+                replacementProductId: selectedReplacementId, 
+                replacedQty: Number(replacementQtyInput) 
+              });
             }
           });
         } else {
@@ -207,6 +270,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
     }, 500);
   };
 
+  /**
+   * Triggers the UI success animation before firing the provided callback to advance the scanner state.
+   */
   const showScanSuccess = (callback: () => void) => {
     setScanStatus('success');
     setErrorMessage('');
@@ -216,12 +282,19 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
     }, 600);
   };
 
+  /**
+   * Triggers the UI error shake animation and displays the mismatch message.
+   */
   const showScanError = (msg: string) => {
     setScanStatus('error');
     setErrorMessage(msg);
     setTimeout(() => setScanStatus('idle'), 2500);
   };
 
+  /**
+   * Captures the physical number of products the picker secured for this order.
+   * If they confirm an amount lower than required, triggers the shortage/replacement workflow.
+   */
   const handleConfirmQty = (e: React.FormEvent) => {
     e.preventDefault();
     if (qtyInput === '' || Number(qtyInput) < 0) return notify.warning('Please enter valid quantity');
@@ -260,7 +333,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
         <div style={{ flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Shelf-to-Box Scan</h2>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            {phase === 'location' ? 'Step 1: Verify Location' : phase === 'qty' ? 'Confirm Quantity' : `Step 2: Pack to Order #${currentGroup?.orderNumber}`}
+            {phase === 'location' ? 'Step 1: Verify Location' : phase === 'qty' ? `Confirm Qty (Order ${currentGroup?.orderNumber})` : `Step 2: Pack to Order ${currentGroup?.orderNumber}`}
           </p>
         </div>
       </header>
@@ -302,7 +375,15 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
                     <p style={{ margin: '10px 0 0', fontSize: '3.5rem', fontWeight: 900, color: '#f59e0b' }}>{item.location}</p>
                     <div style={{ height: 2, background: '#f59e0b', width: '100%', position: 'absolute', top: 0, left: 0, animation: 'beamSweep 2s linear infinite' }} />
                   </div>
+                  {item.isReplacement && (
+                     <button type="button" onClick={() => showScanSuccess(() => setPhase('qty'))} className="btn-primary" style={{ marginTop: 20, background: '#f59e0b', padding: '15px 30px', fontSize: '1rem', width: '100%', maxWidth: 400 }}>BYPASS LOCATION SCAN</button>
+                  )}
                   <p style={{ marginTop: 40, color: 'var(--text-dim)', fontSize: '0.9rem', fontWeight: 700 }}>VERIFYING LOCATION...</p>
+                  {item.isReplacement && (
+                    <div style={{ marginTop: 20, padding: '12px 20px', background: '#3b82f615', border: '1px solid #3b82f640', borderRadius: 12, color: '#3b82f6', fontSize: '0.85rem', fontWeight: 700, textAlign: 'center' }}>
+                      FORCED REPLACEMENT: MUST PACK {item.totalQty} UNITS
+                    </div>
+                  )}
                 </>
               )}
 
@@ -312,7 +393,17 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
                     <Package size={50} />
                   </div>
                   <h3 style={{ fontSize: '1.8rem', textAlign: 'center', margin: '0 0 10px 0', fontWeight: 900 }}>{item.name}</h3>
-                  <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: 40 }}>Confirm picked quantity</p>
+                  
+                  <div style={{ background: '#3b82f622', color: '#3b82f6', border: '1px solid #3b82f6', padding: '6px 16px', borderRadius: '20px', fontSize: '1.1rem', fontWeight: 800, marginBottom: 5 }}>
+                    Order {currentGroup.orderNumber.startsWith('#') ? currentGroup.orderNumber : `#${currentGroup.orderNumber}`}
+                  </div>
+                  
+                  {groupedOrders.length > 1 && (
+                    <p style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem', marginBottom: 25, fontWeight: 700 }}>
+                      (Box {currentOrderIndex + 1} of {groupedOrders.length})
+                    </p>
+                  )}
+                  {groupedOrders.length <= 1 && <div style={{ marginBottom: 30 }} />}
 
                   <div className="card" style={{ padding: 30, width: '100%', marginBottom: 30, textAlign: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -358,7 +449,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
                   </p>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 15, width: '100%' }}>
-                    <button className="btn-primary" style={{ padding: '20px', background: '#3b82f6', color: 'white' }} onClick={() => setPhase('replacement-select')}>SUBSTITUTE PRODUCT</button>
+                    {!item.isReplacement && (
+                      <button className="btn-primary" style={{ padding: '20px', background: '#3b82f6', color: 'white' }} onClick={() => setPhase('replacement-select')}>SUBSTITUTE PRODUCT</button>
+                    )}
                     <button className="btn-primary" style={{ padding: '20px', background: '#ef4444', color: 'white' }} onClick={() => finishCurrentOrder({ status: 'Short' })}>MARK AS SHORT</button>
                   </div>
                 </div>
@@ -387,7 +480,8 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
                       filteredProducts.map(p => (
                         <div key={p.id} className="card" style={{ padding: 15, cursor: 'pointer', border: selectedReplacementId === p.id ? '2px solid var(--primary-color)' : '1px solid var(--border-color)' }} onClick={() => {
                           setSelectedReplacementId(p.id);
-                          setPhase('box-replacement');
+                          setReplacementQtyInput(Math.max(1, currentGroup.qty - Number(qtyInput)));
+                          setPhase('replacement-qty');
                         }}>
                           <p style={{ margin: 0, fontWeight: 700 }}>{p.name}</p>
                         </div>
@@ -401,6 +495,58 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ item, onBack, onScanCompl
                   </div>
                   <button onClick={() => setPhase('replacement-prompt')} style={{ marginTop: 20, color: 'var(--text-secondary)', background: 'none', border: 'none' }}>Go Back</button>
                 </div>
+              )}
+
+              {phase === 'replacement-qty' && currentGroup && (
+                <form onSubmit={(e) => { 
+                   e.preventDefault();
+                   if (Number(replacementQtyInput) < 1) {
+                     notify.error("Replacement quantity must be at least 1.");
+                     return;
+                   }
+                   // NO MORE DOUBLE SCAN - if box was already verified for original part, just finish.
+                   finishCurrentOrder({ 
+                     status: 'Replaced', 
+                     replacementProductId: selectedReplacementId, 
+                     replacedQty: Number(replacementQtyInput) 
+                   });
+                }} style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: 100, height: 100, background: '#3b82f622', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', marginBottom: 30 }}>
+                    <Package size={50} />
+                  </div>
+                  <h3 style={{ fontSize: '1.8rem', textAlign: 'center', margin: '0 0 10px 0', fontWeight: 900 }}>Sub Quantity</h3>
+                  <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: 40 }}>How many replacements dropping into box?</p>
+
+                  <div className="card" style={{ padding: 30, width: '100%', marginBottom: 30, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+                      <button
+                        type="button"
+                        onClick={() => setReplacementQtyInput(prev => Math.max(1, (Number(prev) || 0) - 1))}
+                        style={{ width: 80, height: 80, borderRadius: '50%', border: '2px solid var(--border-color)', background: 'var(--surface-color)', color: 'white', fontSize: '2rem', fontWeight: 900 }}
+                      >
+                        -
+                      </button>
+
+                      <input
+                        type="number"
+                        autoFocus
+                        value={replacementQtyInput}
+                        onChange={(e) => setReplacementQtyInput(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                        style={{ width: '120px', padding: '15px 5px', fontSize: '3rem', textAlign: 'center', borderRadius: 16, border: '2px solid #3b82f6', background: '#000', color: 'white', fontWeight: 900 }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setReplacementQtyInput(prev => (Number(prev) || 0) + 1)}
+                        style={{ width: 80, height: 80, borderRadius: '50%', border: '2px solid #3b82f6', background: '#3b82f6', color: '#000', fontSize: '2rem', fontWeight: 900 }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary" style={{ width: '100%', padding: '20px', fontSize: '1.2rem', fontWeight: 900, background: '#3b82f6' }}>CONFIRM SUBSTITUTION</button>
+                </form>
               )}
 
               {(phase === 'box-original' || phase === 'box-replacement') && currentGroup && (

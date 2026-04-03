@@ -49,6 +49,20 @@ export const scannerService = {
   },
 
   /**
+   * Assign multiple orders to a cart simultaneously.
+   */
+  async assignCartBatch(cartId: string, assignments: Record<string, string>) {
+    return apiClient.post('/scanner/assign-cart-batch', { cartId, assignments });
+  },
+
+  /**
+   * Completely cancel the cart session, unlinking all orders and resetting it in Airtable
+   */
+  async cancelSession(cartId: string) {
+    return apiClient.post('/scanner/cancel-session', { cartId });
+  },
+
+  /**
    * Sync and finish the cart picking process
    */
   async syncCart(cartId: string, items: PickItem[]) {

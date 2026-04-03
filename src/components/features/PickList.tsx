@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Package, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { MapPin, Package, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
 import notify from "@/lib/notifications";
 import scannerService from "@/services/scanner.service";
 import type { PickItem } from "@/interfaces";
@@ -19,6 +19,7 @@ interface LocalItemState {
 interface PickListProps {
   cartId: string;
   pickerId: string;
+  pickerName?: string;
   onSelectItem: (item: PickItem) => void;
   localPickedOverlay?: Record<string, LocalItemState>;
   additionalItems?: PickItem[];
@@ -34,6 +35,7 @@ interface PickListProps {
 const PickList: React.FC<PickListProps> = ({
   cartId,
   pickerId,
+  pickerName,
   onSelectItem,
   localPickedOverlay = {},
   additionalItems = [],
@@ -52,7 +54,16 @@ const PickList: React.FC<PickListProps> = ({
     const fetchPickList = async () => {
       try {
         const res = await scannerService.getPickList(cartId);
-        setItems(res.data);
+        const backendData = res.data as any;
+
+        // If the backend has already provided a summary (Completed cart), use it.
+        if (backendData && backendData.summary && backendData.cartStatus === 'Completed' && onSessionComplete) {
+           onSessionComplete(backendData.summary);
+           return;
+        }
+
+        const pickItems = Array.isArray(backendData) ? backendData : (backendData?.items || []);
+        setItems(pickItems);
       } catch (err: any) {
         console.error('Failed to load pick list:', err);
         notify.error('Could not load pick list. Please refresh.', {
@@ -64,7 +75,7 @@ const PickList: React.FC<PickListProps> = ({
     };
 
     fetchPickList();
-  }, [cartId]);
+  }, [cartId, onSessionComplete]);
 
   /**
    * Finalizes the picking session by synchronizing all local state changes to Airtable.
@@ -72,25 +83,25 @@ const PickList: React.FC<PickListProps> = ({
   const handleFinishCart = async (combinedItemsToSync: PickItem[]) => {
     try {
       setIsSyncing(true);
-      await scannerService.syncCart(cartId, combinedItemsToSync);
-
-      let totalP = 0;
-      let totalR = 0;
-      let totalS = 0;
-      combinedItemsToSync.forEach(i => {
-        totalP += i.pickedQty || 0;
-        totalR += i.replacedQty || 0;
-        totalS += i.shortQty || 0;
-      });
+      
+      const itemsForBackend = combinedItemsToSync.filter(i => !i.isReplacement);
+      await scannerService.syncCart(cartId, itemsForBackend);
 
       if (onSessionComplete) {
-        onSessionComplete({
-          cartId: cartId,
-          teamMemberId: pickerId,
-          totalItemsPacked: totalP + totalR,
-          totalReplacements: totalR,
-          totalShorts: totalS
-        });
+        // 2. Fetch the Source-of-Truth Summary from the Backend (with the correct 3+3+1 math)
+        const summaryRes = await scannerService.getPickList(cartId);
+        const finalMetrics = (summaryRes.data as any)?.summary;
+
+        if (finalMetrics) {
+          onSessionComplete({
+            ...finalMetrics,
+            teamMemberName: pickerName || pickerId,
+            cartId: cartId
+          });
+        } else {
+           // Fallback to error if metrics can't be rebuilt
+           notify.error('Packing verified, but summary is rebuilding. Please re-scan cart.');
+        }
       }
     } catch (err: any) {
       console.error('Failed to sync logic:', err);
@@ -104,7 +115,9 @@ const PickList: React.FC<PickListProps> = ({
   /**
    * Helper to merge the server's base pick list with the locally tracked picking progress.
    */
-  const allBaseItems = [...items, ...additionalItems];
+  const allBaseItems = [...items, ...additionalItems].sort((a, b) => 
+    a.location.localeCompare(b.location, undefined, { numeric: true, sensitivity: 'base' })
+  );
   const combinedItems = allBaseItems.map(item => ({
     ...item,
     pickedQty: localPickedOverlay[item.productId]?.pickedQty ?? item.pickedQty,
@@ -118,12 +131,8 @@ const PickList: React.FC<PickListProps> = ({
   if (loading || isSyncing) {
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          style={{ width: 40, height: 40, border: '4px solid #1e2430', borderTop: '4px solid #00ff88', borderRadius: '50%' }}
-        />
-        <p style={{ marginTop: 20, color: 'var(--text-secondary)' }}>
+        <Loader2 size={48} className="animate-spin" style={{ color: 'var(--primary-color)' }} />
+        <p style={{ marginTop: 20, color: 'var(--text-secondary)', fontWeight: 600, fontSize: '1.2rem', letterSpacing: '0.05em' }}>
           {isSyncing ? 'Saving to Airtable...' : 'Loading Pick List...'}
         </p>
       </div>
@@ -207,6 +216,13 @@ const PickList: React.FC<PickListProps> = ({
             const hasReplacement = (item.replacedQty || 0) > 0;
             const hasShort = (item.shortQty || 0) > 0;
 
+            // Generate breakdown data
+            const breakdownMap = new Map<string, number>();
+            item.items?.forEach(line => {
+              breakdownMap.set(line.orderNumber, (breakdownMap.get(line.orderNumber) || 0) + line.qty);
+            });
+            const breakdownArray = Array.from(breakdownMap.entries());
+
             return (
               <motion.div
                 key={item.productId}
@@ -245,9 +261,19 @@ const PickList: React.FC<PickListProps> = ({
                       {item.location}
                     </span>
                   </div>
-                  <h3 style={{ margin: 0, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '8px' }}>
                     {item.name}
                   </h3>
+                  {breakdownArray.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {breakdownArray.map(([ord, q]) => (
+                        <div key={ord} style={{ display: 'inline-flex', alignItems: 'center', background: '#3b82f615', border: '1px solid #3b82f640', borderRadius: '6px', padding: '3px 8px', fontSize: '0.7rem', color: '#3b82f6', fontWeight: 800 }}>
+                          <span style={{ opacity: 0.8, marginRight: 6 }}>📦 {ord.startsWith('#') ? ord : `#${ord}`}</span>
+                          <span style={{ color: '#fff', background: '#3b82f6', padding: '1px 6px', borderRadius: '4px', fontSize: '0.65rem' }}>x{q}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ textAlign: 'right', paddingRight: 10 }}>
@@ -264,7 +290,7 @@ const PickList: React.FC<PickListProps> = ({
                   )}
                   {hasShort && (
                     <div style={{ fontSize: '0.65rem', color: '#ef4444', fontWeight: 600, marginTop: 4 }}>
-                      +SHORT
+                      +{item.shortQty} SHORT
                     </div>
                   )}
                 </div>

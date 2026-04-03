@@ -61,20 +61,21 @@ describe('WAREHOUSE SCANNER: FULL FLOW', () => {
         });
       });
 
-      it('enables the start button only when a user and cart are selected', async () => {
+      it('prompts to scan a cart once a team member is selected', async () => {
         render(<SessionStart onSessionStart={mockOnSessionStart} />);
         
         // Wait for loader to disappear
-        await waitFor(() => expect(screen.queryByText(/Connecting/i)).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByText(/Ready to start/i)).toBeInTheDocument());
 
-        const startButton = screen.getByRole('button', { name: /START SESSION/i });
-        expect(startButton).toBeDisabled();
+        // Initially show name selection
+        expect(screen.getByText(/Select your name/i)).toBeInTheDocument();
+        expect(screen.queryByText(/Ready to Scan Cart/i)).not.toBeInTheDocument();
 
-        // Selection logic
+        // Select a team member
         fireEvent.change(screen.getByLabelText(/Team Member/i), { target: { value: 'tm1' } });
-        fireEvent.change(screen.getByLabelText(/Active Cart/i), { target: { value: 'CART001' } });
         
-        expect(startButton).not.toBeDisabled();
+        // Should now show the scan prompt
+        await waitFor(() => expect(screen.getByText(/Ready to Scan Cart/i)).toBeInTheDocument());
       });
     });
   }
@@ -140,16 +141,21 @@ describe('WAREHOUSE SCANNER: FULL FLOW', () => {
       const mockMetrics = {
         cartId: 'CART001',
         teamMemberId: 'tm1',
+        teamMemberName: 'Camila',
         totalItemsPacked: 10,
-        totalReplacements: 0,
-        totalShorts: 0,
+        totalReplacements: 2,
+        totalShorts: 1,
+        boxDetails: [
+          { orderNumber: '42102', items: 5, replacements: 1, shorts: 0, status: 'Partial' as const },
+          { orderNumber: '42006', items: 3, replacements: 0, shorts: 1, status: 'Issues' as const }
+        ]
       };
       const mockOnNewSession = jest.fn();
 
       it('shows the correct summary metrics to the picker', () => {
         render(<SessionComplete metrics={mockMetrics} onNewSession={mockOnNewSession} />);
         
-        expect(screen.getByText(/Session Complete!/i)).toBeInTheDocument();
+        expect(screen.getByText(/All Packed!/i)).toBeInTheDocument();
         expect(screen.getAllByText(/CART001/i).length).toBeGreaterThan(0);
         expect(screen.getByText('10')).toBeInTheDocument();
       });
@@ -157,7 +163,7 @@ describe('WAREHOUSE SCANNER: FULL FLOW', () => {
       it('can reset the app for the next cart', () => {
         render(<SessionComplete metrics={mockMetrics} onNewSession={mockOnNewSession} />);
         
-        fireEvent.click(screen.getByText(/Start Next Cart/i));
+        fireEvent.click(screen.getByText(/Next Session/i));
         expect(mockOnNewSession).toHaveBeenCalled();
       });
     });
