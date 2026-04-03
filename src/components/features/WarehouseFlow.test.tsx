@@ -142,26 +142,45 @@ describe('WAREHOUSE SCANNER: FULL FLOW', () => {
         cartId: 'CART001',
         teamMemberId: 'tm1',
         teamMemberName: 'Camila',
-        totalItemsPacked: 10,
-        totalReplacements: 2,
+        totalItemsPacked: 41,
+        totalReplacements: 7,
         totalShorts: 1,
+        // Using both for maximum compatibility during transition
         boxDetails: [
-          { orderNumber: '42102', items: 5, replacements: 1, shorts: 0, status: 'Partial' as const },
-          { orderNumber: '42006', items: 3, replacements: 0, shorts: 1, status: 'Issues' as const }
+          { orderNumber: '4001', items: 41, replacements: 7, shorts: 0, slot: 'A', status: 'Partial' as const },
+          { orderNumber: '4002', items: 20, replacements: 0, shorts: 1, slot: 'B', status: 'Short' as const }
+        ],
+        slotTotals: [
+          { orderNumber: '4001', items: 41, replacements: 7, shorts: 0, slot: 'A', status: 'Partial' as const },
+          { orderNumber: '4002', items: 20, replacements: 0, shorts: 1, slot: 'B', status: 'Short' as const }
         ]
       };
       const mockOnNewSession = jest.fn();
 
-      it('shows the correct summary metrics to the picker', () => {
-        render(<SessionComplete metrics={mockMetrics} onNewSession={mockOnNewSession} />);
+      it('shows the correct 41 + 7 and 20 + 1 summary metrics to the picker', async () => {
+        render(<SessionComplete metrics={mockMetrics as any} onNewSession={mockOnNewSession} />);
         
         expect(screen.getByText(/All Packed!/i)).toBeInTheDocument();
-        expect(screen.getAllByText(/CART001/i).length).toBeGreaterThan(0);
-        expect(screen.getByText('10')).toBeInTheDocument();
+        
+        // Final Physical Reality Checks for Slot A (41 + 7 Substitute)
+        await waitFor(() => {
+          const slotA = (screen.getByText(/4001/i).closest('.card') || document.body) as HTMLElement;
+          expect(within(slotA).getAllByText(/41/).length).toBeGreaterThan(0);
+          expect(within(slotA).getAllByText(/7/).length).toBeGreaterThan(0);
+          expect(within(slotA).getAllByText(/Substitute/i).length).toBeGreaterThan(0);
+        });
+        
+        // Final Physical Reality Checks for Slot B (20 + 1 Short)
+        await waitFor(() => {
+          const slotB = (screen.getByText(/4002/i).closest('.card') || document.body) as HTMLElement;
+          expect(within(slotB).getAllByText(/20/).length).toBeGreaterThan(0);
+          expect(within(slotB).getAllByText(/1/).length).toBeGreaterThan(0);
+          expect(within(slotB).getAllByText(/Short/i).length).toBeGreaterThan(0);
+        });
       });
 
       it('can reset the app for the next cart', () => {
-        render(<SessionComplete metrics={mockMetrics} onNewSession={mockOnNewSession} />);
+        render(<SessionComplete metrics={mockMetrics as any} onNewSession={mockOnNewSession} />);
         
         fireEvent.click(screen.getByText(/Next Session/i));
         expect(mockOnNewSession).toHaveBeenCalled();

@@ -3,6 +3,8 @@
 A lightning-fast, mobile-first picking interface optimized for **Barcode & QR Code** scanning in industrial warehouse environments.
 
 ## 🚀 Features
+- **Cart QR-Scanning**: Physical trolley verification to ensure picker is loading the correct session.
+- **Intelligent Slot Allotment**: Automated mapping of Orders to Trolley Positions (A-F) with backend-driven slot locking.
 - **Historical Dashboard**: Direct scanning of completed carts for instant packing metrics (Boxes, Replacements, Shorts).
 - **Focus Trap Architecture**: Invisible input field with auto-refocus, ensuring the scanner is always ready to scan without tapping.
 - **2-Scan Workflow**: Enforces "Shelf Location -> Order Box" scanning for zero-error fulfilment.
@@ -53,13 +55,23 @@ Create a `.env.local` file in the root directory and configure these variables:
 | :--- | :--- | :--- |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:3001/api` | The base URL of your NestJS backend. Ensure it ends with `/api`. |
 | `NEXT_PUBLIC_AUTH_ENABLED` | `true` | Toggle for local session security. Set to `false` for development bypass. |
-| `WHITELISTED_IPS` | `127.0.0.1, ::1, *` | IPs allowed to scan. Use `*` to allow all for local debugging. |
-
 ### Quick Start Template:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
 NEXT_PUBLIC_AUTH_ENABLED=true
 WHITELISTED_IPS=127.0.0.1, ::1, *
+```
+
+### 🏁 High-Visibility Metrics (Synchronized)
+The frontend is synchronized with the backend's "Physical Reality" engine. Every slot summary now shows:
+- **Primary Units**: Total items from the original pick list that were packed.
+- **Substitution Badges**: High-contrast labels showing units added via substitution (e.g., **"41 + 7 Substitute"**).
+- **Shortage Alerts**: Visual indicators for missing stock items (e.g., **"20 + 1 Short"**).
+
+## 🧪 Advanced Integration Tests
+In addition to phased tests, you can run the full end-to-end warehouse flow validation:
+```bash
+npm run test src/components/features/WarehouseFlow.test.tsx
 ```
 
 ## 📜 License
