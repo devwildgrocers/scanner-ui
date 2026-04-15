@@ -37,7 +37,11 @@ export const scannerService = {
    * Initialize a new scanning session for a team member and cart
    */
   async startSession(teamMemberId: string, cartId: string) {
-    return apiClient.post<SessionResponse>('/scanner/start-session', { teamMemberId, cartId });
+    return apiClient.post<SessionResponse>(
+      '/scanner/start-session',
+      { teamMemberId, cartId },
+      { headers: { 'x-skip-error-toast': 'true' } }
+    );
   },
 
   /**
@@ -67,6 +71,15 @@ export const scannerService = {
    */
   async syncCart(cartId: string, items: PickItem[]) {
     return apiClient.post('/scanner/sync-cart', { cartId, items });
+  },
+
+  /**
+   * Fetch all orders within a date range for QR label generation.
+   */
+  async getOrdersByDateRange(from: string, to: string) {
+    return apiClient.get<{ id: string; orderNumber: string; fulfilmentDate: string }[]>(
+      `/scanner/orders?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    );
   },
 };
 

@@ -12,6 +12,8 @@ import scannerService from '@/services/scanner.service';
  */
 
 const activePhases = process.env.PHASE ? process.env.PHASE.split(',') : [];
+const hasMatchingPhase =
+  activePhases.length === 0 || ['p1', 'p2', 'p3'].some((phase) => activePhases.includes(phase));
 
 // 1. GLOBAL MOCKS
 jest.mock('@/services/scanner.service', () => ({
@@ -187,5 +189,11 @@ describe('WAREHOUSE SCANNER: FULL FLOW', () => {
       });
     });
   }
+
+  it('keeps suite runnable when PHASE filters all tests', () => {
+    if (!hasMatchingPhase) {
+      expect(activePhases.length).toBeGreaterThan(0);
+    }
+  });
 
 });

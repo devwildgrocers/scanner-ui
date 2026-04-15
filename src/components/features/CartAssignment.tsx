@@ -76,9 +76,30 @@ const CartAssignment: React.FC<CartAssignmentProps> = ({ cartId, initialAssignme
           setCurrentStep('scan-position');
         }
       } else {
-        const pos = scannedValue.toUpperCase();
+        // Support both formats:
+        //   Legacy: just "A" through "F"
+        //   New QR label format: "CART-01-A" (cart-id + dash + slot letter)
+        let pos = scannedValue.toUpperCase();
+        let scannedCartId: string | null = null;
+
+        // Detect the full label format: anything ending in -<single letter A-F>
+        const fullLabelMatch = pos.match(/^(.+)-([A-F])$/);
+        if (fullLabelMatch) {
+          scannedCartId = fullLabelMatch[1]; // e.g. "CART-01"
+          pos = fullLabelMatch[2];           // e.g. "A"
+
+          // Instant frontend validation — no backend call needed
+          if (scannedCartId.toUpperCase() !== cartId.toUpperCase()) {
+            notify.error(`Wrong Cart Scanned!`, {
+              description: `You are working on ${cartId} but scanned a slot for ${scannedCartId}. Please scan the correct cart's position label.`
+            });
+            setIsProcessing(false);
+            return;
+          }
+        }
+
         if (!['A', 'B', 'C', 'D', 'E', 'F'].includes(pos)) {
-          notify.error(`Invalid Position: "${pos}". Scan A-F.`);
+          notify.error(`Invalid Position: "${pos}". Scan A–F.`);
         } else if (assignments[pos].scanned) {
           notify.error(`Slot ${pos} is already filled`, { description: `Currently holding Order ${assignments[pos].orderId}` });
         } else {

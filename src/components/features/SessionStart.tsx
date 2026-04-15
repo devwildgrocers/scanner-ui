@@ -72,7 +72,14 @@ const SessionStart: React.FC<SessionStartProps> = ({ onSessionStart }) => {
       });
     } catch (err: any) {
       console.error('Session start failed:', err);
-      notify.error('Invalid Cart or Network Error', { description: err.response?.data?.message || err.message });
+      const backendMessage = err.response?.data?.message || err.message || 'Unknown error';
+      let title = 'Invalid Cart or Network Error';
+      if (backendMessage.includes('"Complete"')) {
+        title = 'Cart Already Complete';
+      } else if (backendMessage.includes('"In Use"')) {
+        title = 'Cart Currently In Use';
+      }
+      notify.error(title, { description: backendMessage });
       setIsStarting(false);
     }
   };

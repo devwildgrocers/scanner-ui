@@ -16,6 +16,12 @@ const axiosInstance: AxiosInstance = axios.create({
 // Request Interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
+    const skipErrorToast = config.headers?.['x-skip-error-toast'];
+    if (skipErrorToast) {
+      (config as any).__skipErrorToast = true;
+      delete config.headers['x-skip-error-toast'];
+    }
+
     // Conditional Authorization
     if (APP_CONFIG.AUTH_ENABLED) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
@@ -37,11 +43,13 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
     const message = error.response?.data?.message || error.message || 'An unexpected error occurred';
-    
-    // Explicitly exclude certain errors if needed, otherwise show error toast
-    notify.error('API Error', {
-      description: message,
-    });
+
+    const shouldSkipToast = Boolean((error.config as any)?.__skipErrorToast);
+    if (!shouldSkipToast) {
+      notify.error('API Error', {
+        description: message,
+      });
+    }
 
     console.error('API Error:', message);
     return Promise.reject(error);

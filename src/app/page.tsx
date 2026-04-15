@@ -43,12 +43,12 @@ const loadLocalState = <T,>(key: string, defaultVal: T): T => {
  */
 export default function App() {
   const [mounted, setMounted] = useState(false);
-  
+
   // Core Session State
-  const [activeSession, setActiveSession] = useState<{ 
-    teamMemberId: string; 
+  const [activeSession, setActiveSession] = useState<{
+    teamMemberId: string;
     teamMemberName?: string;
-    cartId: string; 
+    cartId: string;
     active: boolean;
     initialAssignments?: Record<string, string>;
   } | null>(() => loadLocalState('session', null));
@@ -66,28 +66,28 @@ export default function App() {
    */
   useEffect(() => {
     setMounted(true);
-    
+
     const localSession = loadLocalState('session', null) as any;
     if (localSession?.active && localSession.teamMemberId && localSession.cartId) {
-       // Validate the session with the backend to ensure real-time accuracy in case they refreshed mid-assignment
-       scannerService.startSession(localSession.teamMemberId, localSession.cartId)
-         .then(res => {
-            if (res.data) {
-                const assignmentCount = res.data.assignments ? Object.keys(res.data.assignments).length : 0;
-                
-                // Force jump to Pick List if the backend confirms it's fully assigned
-                if (res.data.cartStatus === 'Picking' || res.data.cartStatus === 'In Progress' || assignmentCount === 6) {
-                   setIsAssigning(false);
-                }
-                
-                // Update the session state to reflect the absolute latest assignment map from the server
-                setActiveSession(prev => prev ? {
-                  ...prev,
-                  initialAssignments: res.data.assignments
-                } : null);
+      // Validate the session with the backend to ensure real-time accuracy in case they refreshed mid-assignment
+      scannerService.startSession(localSession.teamMemberId, localSession.cartId)
+        .then(res => {
+          if (res.data) {
+            const assignmentCount = res.data.assignments ? Object.keys(res.data.assignments).length : 0;
+
+            // Only jump to Pick List when all 6 slots are already assigned.
+            if (assignmentCount === 6) {
+              setIsAssigning(false);
             }
-         })
-         .catch(err => console.warn("Failed to verify session on mount.", err));
+
+            // Update the session state to reflect the absolute latest assignment map from the server
+            setActiveSession(prev => prev ? {
+              ...prev,
+              initialAssignments: res.data.assignments
+            } : null);
+          }
+        })
+        .catch(err => console.warn("Failed to verify session on mount.", err));
     }
   }, []);
 
@@ -96,7 +96,7 @@ export default function App() {
    */
   useEffect(() => {
     if (!mounted) return;
-    
+
     // Always persist metrics since it might be the only state after a completed packing
     localStorage.setItem('scannerApp_metrics', JSON.stringify(completedMetrics));
 
@@ -107,11 +107,11 @@ export default function App() {
       localStorage.setItem('scannerApp_replacements', JSON.stringify(addedReplacements));
       localStorage.setItem('scannerApp_selectedItem', JSON.stringify(selectedItem));
     } else {
-        localStorage.removeItem('scannerApp_session');
-        localStorage.removeItem('scannerApp_isAssigning');
-        localStorage.removeItem('scannerApp_pickedItems');
-        localStorage.removeItem('scannerApp_replacements');
-        localStorage.removeItem('scannerApp_selectedItem');
+      localStorage.removeItem('scannerApp_session');
+      localStorage.removeItem('scannerApp_isAssigning');
+      localStorage.removeItem('scannerApp_pickedItems');
+      localStorage.removeItem('scannerApp_replacements');
+      localStorage.removeItem('scannerApp_selectedItem');
     }
   }, [activeSession, pickedItemsState, addedReplacements, selectedItem, completedMetrics, mounted]);
 
@@ -119,10 +119,10 @@ export default function App() {
    * Prepares the app for a new cart picking session, or resumes an active one.
    * Clears old cache layers to ensure no data stale from previous sessions.
    */
-  const handleStartSession = (data: { 
-    teamMemberId: string; 
+  const handleStartSession = (data: {
+    teamMemberId: string;
     teamMemberName?: string;
-    cartId: string; 
+    cartId: string;
     cartStatus?: string;
     assignments?: Record<string, string>;
     summary?: any;
@@ -131,33 +131,17 @@ export default function App() {
     setAddedReplacements([]);
     setSelectedItem(null);
     setCompletedMetrics(null);
-    
-    // 🟢 NEW: If cart is already complete, jump straight to Summary screen
-    if (data.summary) {
-        setCompletedMetrics({
-          cartId: data.cartId,
-          teamMemberId: data.teamMemberId,
-          teamMemberName: data.teamMemberName || data.teamMemberId,
-          totalItemsPacked: data.summary.totalItemsPacked,
-          totalReplacements: data.summary.totalReplacements,
-          totalShorts: data.summary.totalShorts,
-          boxDetails: data.summary.boxDetails
-        });
-       setActiveSession(null); 
-       notify.info('Cart Summary Loaded', { description: 'This cart was already completed.' });
-       return;
-    }
 
-    // Jump straight to Pick List if cart status is already Picking/In Progress OR if 6 slots are already filled
+    // Jump straight to Pick List only if 6 slots are already filled.
     const assignmentCount = data.assignments ? Object.keys(data.assignments).length : 0;
-    
-    if (data.cartStatus === 'Picking' || data.cartStatus === 'In Progress' || assignmentCount === 6) {
+
+    if (assignmentCount === 6) {
       setIsAssigning(false);
       notify.success('Resuming Cart Session', { description: 'Jumping straight to the pick list.' });
     } else {
-      setIsAssigning(true); 
+      setIsAssigning(true);
     }
-    
+
     setActiveSession({
       teamMemberId: data.teamMemberId,
       teamMemberName: data.teamMemberName,
@@ -195,20 +179,20 @@ export default function App() {
         {
           loading: 'Cancelling session and releasing orders...',
           success: () => {
-             handleResetSession();
-             return 'Session Cancelled: Cart and Orders are available again.';
+            handleResetSession();
+            return 'Session Cancelled: Cart and Orders are available again.';
           },
           error: (err) => {
-             console.warn('Failed to completely cancel cart in remote server.', err);
-             // Still reset UI locally to prevent getting stuck
-             handleResetSession();
-             return 'Session Cancelled Locally (Airtable Update Failed)';
+            console.warn('Failed to completely cancel cart in remote server.', err);
+            // Still reset UI locally to prevent getting stuck
+            handleResetSession();
+            return 'Session Cancelled Locally (Airtable Update Failed)';
           }
         }
       );
     } else {
-       handleResetSession();
-       notify.info('Session Cancelled');
+      handleResetSession();
+      notify.info('Session Cancelled');
     }
   };
 
@@ -217,11 +201,11 @@ export default function App() {
    */
   const handleCancelSession = () => {
     toast.custom((t) => (
-      <div style={{ 
-        background: 'var(--surface-color)', 
-        border: '1px solid #ef4444', 
-        borderRadius: '20px', 
-        padding: '28px', 
+      <div style={{
+        background: 'var(--surface-color)',
+        border: '1px solid #ef4444',
+        borderRadius: '20px',
+        padding: '28px',
         width: '100%',
         minWidth: '340px',
         boxShadow: '0 30px 60px rgba(0,0,0,0.8)',
@@ -235,13 +219,13 @@ export default function App() {
           This will permanently delete all picked items for this cart and remove all orders from it. This action <strong style={{ color: 'white' }}>cannot be undone</strong>.
         </p>
         <div style={{ display: 'flex', gap: 14 }}>
-          <button 
+          <button
             style={{ flex: 1, padding: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}
             onClick={() => toast.dismiss(t)}
           >
             Keep Picking
           </button>
-          <button 
+          <button
             style={{ flex: 1, padding: '16px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.4)' }}
             onClick={() => {
               toast.dismiss(t);
@@ -252,9 +236,9 @@ export default function App() {
           </button>
         </div>
       </div>
-    ), { 
+    ), {
       position: 'top-center',
-      duration: Infinity 
+      duration: Infinity
     });
   };
 
@@ -262,8 +246,8 @@ export default function App() {
    * Finalizes the local session state upon successful Airtable sync.
    */
   const handleSessionComplete = (metrics: SessionMetrics) => {
-      setCompletedMetrics(metrics);
-      setActiveSession(null);
+    setCompletedMetrics(metrics);
+    setActiveSession(null);
   };
 
   /**
@@ -309,18 +293,18 @@ export default function App() {
     <main className="min-h-screen bg-[#0f1117] text-white">
       <AnimatePresence mode="wait">
         {completedMetrics ? (
-          <SessionComplete 
-            key="complete" 
-            metrics={completedMetrics} 
-            onNewSession={handleResetSession} 
+          <SessionComplete
+            key="complete"
+            metrics={completedMetrics}
+            onNewSession={handleResetSession}
           />
         ) : !activeSession?.active ? (
-          <SessionStart 
-            key="start" 
-            onSessionStart={handleStartSession} 
+          <SessionStart
+            key="start"
+            onSessionStart={handleStartSession}
           />
         ) : (
-          <motion.div 
+          <motion.div
             key="main-workflow"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -328,18 +312,18 @@ export default function App() {
             className="flex flex-col min-h-screen"
           >
             {isAssigning ? (
-              <CartAssignment 
+              <CartAssignment
                 cartId={activeSession.cartId}
                 initialAssignments={activeSession.initialAssignments}
                 onComplete={handleAssignmentComplete}
-                onCancel={handleAbortSession} 
+                onCancel={handleAbortSession}
               />
             ) : (
-              <PickList 
-                cartId={activeSession.cartId} 
+              <PickList
+                cartId={activeSession.cartId}
                 pickerId={activeSession.teamMemberId}
                 pickerName={activeSession.teamMemberName}
-                onSelectItem={handleSelectItem} 
+                onSelectItem={handleSelectItem}
                 localPickedOverlay={pickedItemsState}
                 additionalItems={addedReplacements}
                 onCancelSession={handleCancelSession}
@@ -347,14 +331,14 @@ export default function App() {
                 onResetSession={handleResetSession}
               />
             )}
-            
+
             <AnimatePresence>
               {selectedItem && (
-                <ScannerScreen 
+                <ScannerScreen
                   key="scanner-overlay"
-                  item={selectedItem} 
-                  onBack={() => setSelectedItem(null)} 
-                  onScanComplete={handleScanComplete} 
+                  item={selectedItem}
+                  onBack={() => setSelectedItem(null)}
+                  onScanComplete={handleScanComplete}
                 />
               )}
             </AnimatePresence>

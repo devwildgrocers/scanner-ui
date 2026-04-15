@@ -56,8 +56,8 @@ const PickList: React.FC<PickListProps> = ({
         const res = await scannerService.getPickList(cartId);
         const backendData = res.data as any;
 
-        // If the backend has already provided a summary (Completed cart), use it.
-        if (backendData && backendData.summary && backendData.cartStatus === 'Completed' && onSessionComplete) {
+        // If the backend has already provided a summary (Complete cart), use it.
+        if (backendData && backendData.summary && backendData.cartStatus === 'Complete' && onSessionComplete) {
            onSessionComplete(backendData.summary);
            return;
         }
