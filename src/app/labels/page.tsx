@@ -169,8 +169,9 @@ export default function LabelsPage() {
 
   return (
     <>
-      {/* ── Print-only styles ── */}
+      {/* ── Page Styles ── */}
       <style>{`
+        input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; filter: invert(1); }
         .print-only { display: none; }
         @page { margin: 20px 40px 20px 20px; }
         @media print {
@@ -335,10 +336,17 @@ export default function LabelsPage() {
                         value={value as string}
                         // min={todayString}
                         onChange={e => (setter as any)(e.target.value)}
+                        onClick={e => {
+                          try {
+                            (e.target as HTMLInputElement).showPicker();
+                          } catch (err) {
+                            // Ignore for unsupported browsers
+                          }
+                        }}
                         style={{
                           width: '100%', padding: '12px', background: '#1e2430', border: '2px solid #2d3646',
                           borderRadius: 10, color: '#f8fafc', fontSize: '0.95rem', fontFamily: 'Inter, sans-serif',
-                          boxSizing: 'border-box'
+                          boxSizing: 'border-box', cursor: 'pointer'
                         }}
                       />
                     </div>
