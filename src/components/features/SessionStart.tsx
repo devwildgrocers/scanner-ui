@@ -111,7 +111,7 @@ const SessionStart: React.FC<SessionStartProps> = ({ onSessionStart }) => {
 
       {/* Hidden scan input */}
        <form onSubmit={handleCartScan} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>
-          <input ref={scanInputRef} type="text" value={scanValue} onChange={e => setScanValue(e.target.value)} autoFocus />
+          <input ref={scanInputRef} type="text" value={scanValue} onChange={e => setScanValue(e.target.value)} autoFocus inputMode="none" />
        </form>
 
       <AnimatePresence mode="wait">

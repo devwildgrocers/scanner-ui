@@ -142,7 +142,7 @@ const CartAssignment: React.FC<CartAssignmentProps> = ({ cartId, initialAssignme
       </header>
 
       <form onSubmit={handleScan} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}>
-        <input ref={inputRef} type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} autoFocus />
+        <input ref={inputRef} type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} autoFocus inputMode="none" />
       </form>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
