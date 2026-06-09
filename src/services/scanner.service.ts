@@ -77,9 +77,16 @@ export const scannerService = {
    * Fetch all orders within a date range for QR label generation.
    */
   async getOrdersByDateRange(from: string, to: string) {
-    return apiClient.get<{ id: string; orderNumber: string; fulfilmentDate: string }[]>(
+    return apiClient.get<{ id: string; orderNumber: string; fulfilmentDate: string; deliveryRun?: string; dropNumber?: number }[]>(
       `/scanner/orders?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
     );
+  },
+
+  /**
+   * Add a box to an order, incrementing the count in Airtable.
+   */
+  async addBoxToOrder(orderNumber: string) {
+    return apiClient.post<{ success: boolean; suffix: string; totalBoxes: number }>('/scanner/add-box', { orderNumber });
   },
 };
 

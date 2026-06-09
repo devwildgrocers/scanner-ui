@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Package, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { MapPin, Package, ChevronRight, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import notify from "@/lib/notifications";
 import scannerService from "@/services/scanner.service";
 import type { PickItem } from "@/interfaces";
@@ -139,10 +139,13 @@ const PickList: React.FC<PickListProps> = ({
     );
   }
 
+  const noLocationItems = combinedItems.filter(item => item.location === 'NO_LOCATION');
+  const validCombinedItems = combinedItems.filter(item => item.location !== 'NO_LOCATION');
+
   const isCardDone = (i: PickItem) => (i.pickedQty + (i.replacedQty || 0) + (i.shortQty || 0)) >= i.totalQty;
-  const isAirtableDone = items.length > 0 && items.every(isCardDone);
-  const completedItems = combinedItems.filter(isCardDone).length;
-  const progress = combinedItems.length > 0 ? (completedItems / combinedItems.length) * 100 : 0;
+  const isAirtableDone = items.length > 0 && validCombinedItems.every(isCardDone);
+  const completedItems = validCombinedItems.filter(isCardDone).length;
+  const progress = validCombinedItems.length > 0 ? (completedItems / validCombinedItems.length) * 100 : (isAirtableDone ? 100 : 0);
 
   // 🛡️ NEW: Block the UI if the cart is already 100% packed in the database
   if (isAirtableDone && !isSyncing) {
@@ -186,7 +189,7 @@ const PickList: React.FC<PickListProps> = ({
               </button>
             )}
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary-color)' }}>{completedItems}/{combinedItems.length}</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary-color)' }}>{completedItems}/{validCombinedItems.length}</span>
               <p style={{ color: 'var(--text-dim)', fontSize: '0.7rem', margin: 0, textTransform: 'uppercase' }}>Items Picked</p>
             </div>
           </div>
@@ -202,7 +205,22 @@ const PickList: React.FC<PickListProps> = ({
       </header>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 100px' }}>
-        {items.length === 0 && (
+        {noLocationItems.length > 0 && (
+          <div style={{ marginBottom: 16, background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 12, padding: 16 }}>
+            <h4 style={{ margin: '0 0 8px 0', color: '#f59e0b', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertTriangle size={14} /> NO WAREHOUSE LOCATION
+            </h4>
+            <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              {noLocationItems.map(item => (
+                <li key={item.productId} style={{ marginBottom: 4 }}>
+                  {item.name} <span style={{ opacity: 0.5 }}>x{item.totalQty}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validCombinedItems.length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
             <CheckCircle2 size={48} style={{ marginBottom: 16, opacity: 0.3 }} />
             <h3>No items to pick</h3>
@@ -211,7 +229,7 @@ const PickList: React.FC<PickListProps> = ({
         )}
 
         <div style={{ display: 'grid', gap: 12 }}>
-          {combinedItems.map((item, index) => {
+          {validCombinedItems.map((item, index) => {
             const isDone = isCardDone(item);
             const hasReplacement = (item.replacedQty || 0) > 0;
             const hasShort = (item.shortQty || 0) > 0;
@@ -307,8 +325,8 @@ const PickList: React.FC<PickListProps> = ({
           <button className="btn-primary" style={{ background: 'var(--surface-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', fontSize: '0.9rem', padding: '14px', flex: 1 }} onClick={() => window.location.reload()}>
             REFRESH
           </button>
-          {progress >= 100 && (
-            <button className="btn-primary" style={{ background: '#00ff88', color: '#000', fontSize: '0.9rem', fontWeight: 800, padding: '14px', flex: 2, boxShadow: '0 0 20px rgba(0,255,136,0.3)' }} onClick={() => handleFinishCart(combinedItems)}>
+          {progress >= 100 && validCombinedItems.length > 0 && (
+            <button className="btn-primary" style={{ background: '#00ff88', color: '#000', fontSize: '0.9rem', fontWeight: 800, padding: '14px', flex: 2, boxShadow: '0 0 20px rgba(0,255,136,0.3)' }} onClick={() => handleFinishCart(validCombinedItems)}>
               FINISH PACKING
             </button>
           )}

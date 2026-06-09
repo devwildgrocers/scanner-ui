@@ -8,7 +8,7 @@ import scannerService from '@/services/scanner.service';
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Tab = 'cart' | 'order';
 type Cart = { id: string; cartId: string; status: string };
-type Order = { id: string; orderNumber: string; fulfilmentDate: string };
+type Order = { id: string; orderNumber: string; fulfilmentDate: string; deliveryRun?: string; dropNumber?: number };
 
 // ─── QR Label Component ──────────────────────────────────────────────────────
 const QRLabel = ({ value, title, subtitle, size = 160 }: { value: string; title: string; subtitle?: string; size?: number }) => (
@@ -151,7 +151,14 @@ export default function LabelsPage() {
       if (res.data.length === 0) {
         setOrdersError('No orders found in this date range. Try a different range.');
       } else {
-        setOrders(res.data);
+        const sortedOrders = [...res.data].sort((a: Order, b: Order) => {
+          const runA = a.deliveryRun || '';
+          const runB = b.deliveryRun || '';
+          if (runA < runB) return -1;
+          if (runA > runB) return 1;
+          return (a.dropNumber || 0) - (b.dropNumber || 0);
+        });
+        setOrders(sortedOrders);
         setShowOrderSheet(true);
       }
     } catch (err: any) {
